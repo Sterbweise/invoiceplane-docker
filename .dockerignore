@@ -1,0 +1,9 @@
+html/invoiceplane.zip
+html/*.log
+html/*.tmp
+scripts/*.log
+scripts/*.tmp
+.idea/
+.vscode/
+.DS_Store
+node_modules/
