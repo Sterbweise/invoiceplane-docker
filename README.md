@@ -1,76 +1,78 @@
 # InvoicePlane Docker
 
-## 🚀 Objectif
-Déployer InvoicePlane dans un environnement Docker prêt à l’emploi et exposé sur le port `8383`, afin de pouvoir l’intégrer derrière un reverse-proxy externe (ex : Nginx Proxy Manager).
+## 🚀 Goal
+Provision InvoicePlane inside Docker, expose it on port `8383`, and keep it ready for an external reverse proxy (for example Nginx Proxy Manager).
 
-## 📁 Structure
-- `docker-compose.yml` : orchestre les services `mariadb`, `php-fpm` et `nginx`.
-- `php/` : Dockerfile PHP, configuration personnalisée et script d’initialisation.
-- `nginx/default.conf` : configuration vhost pour servir InvoicePlane.
-- `html/` : répertoire partagé où sera décompressé InvoicePlane.
+## 📁 Layout
+- `docker-compose.yml`: orchestrates `mariadb`, `php-fpm`, and `nginx` services.
+- `php/`: PHP Dockerfile, custom PHP configuration, and initialization scripts.
+- `nginx/default.conf`: virtual host definition serving InvoicePlane through Nginx.
+- `html/`: bind-mounted web root where the InvoicePlane sources will be extracted.
 
-## ⚙️ Pré-requis
-- Docker Desktop ou Docker Engine + Docker Compose
-- Port `8383` libre sur l’hôte
-- (Optionnel) Outil de reverse-proxy externe (ex. Nginx Proxy Manager)
+## ⚙️ Prerequisites
+- Docker Desktop or Docker Engine with Docker Compose
+- Host port `8383` available
+- (Optional) External reverse proxy solution (Nginx Proxy Manager, Traefik, …)
 
 ## 🔧 Configuration
-Copiez `.env.example` en `.env` puis ajustez les mots de passe et paramètres si besoin :
+Copy `.env.example` to `.env` and adjust the values (or create a `docker-compose.override.yml` to keep secrets outside the repository):
 
 ```bash
 cp .env.example .env
 ```
 
-Variables clés :
-- `MYSQL_ROOT_PASSWORD`, `MYSQL_USER`, `MYSQL_PASSWORD` : mots de passe MariaDB
-- `HOST_PORT` : port d’écoute exposé par Nginx
-- `INVOICEPLANE_BASE_URL` : URL publique (utilisée pour générer `ipconfig.php` automatiquement)
+Key variables:
+- `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`: MariaDB credentials (required)
+- `HOST_PORT`: host port mapped to the Nginx container
+- `INVOICEPLANE_BASE_URL`: public URL used to populate `ipconfig.php`
+- You can also duplicate `docker-compose.override.example.yml` to keep secrets out of version control
 
-## ▶️ Démarrer l’environnement
+## ▶️ Start the stack
 ```bash
 docker compose up -d --build
 ```
-Le build va préparer PHP avec toutes les dépendances et enregistrer un script d’initialisation qui, au premier démarrage, crée `ipconfig.php` à partir de l’exemple si le fichier n’existe pas encore.
+The PHP image is built with all required extensions, and an entry script creates `ipconfig.php` from the example file on the first boot.
 
-## 📦 Installer InvoicePlane
-Vous pouvez automatiser les étapes ci-dessous avec le script `scripts/setup-invoiceplane.sh`.
+## 📦 Install InvoicePlane
+You can automate the installation steps with `scripts/setup-invoiceplane.sh`.
 
-### Script d’installation (recommandé)
+### Recommended: automated script
 ```bash
 chmod +x scripts/setup-invoiceplane.sh
 ./scripts/setup-invoiceplane.sh
 ```
+The script downloads InvoicePlane `v1.6.3`, extracts the `ip` folder, copies `ipconfig.php.example` to `ipconfig.php`, converts `env` to `.env`, and removes the PHP guard line that prevents dotenv parsing.
 
-### Étapes manuelles équivalentes
-1. Arrêtez la stack si elle tourne déjà, puis redémarrez les conteneurs :
+### Manual steps (if you prefer)
+1. (Re)start the stack:
    ```bash
    docker compose up -d
    ```
-2. Téléchargez et décompressez InvoicePlane :
+2. Download and extract InvoicePlane:
    ```bash
    cd html
-   wget https://www.invoiceplane.com/download/v1.6.1 -O invoiceplane.zip
+   wget https://www.invoiceplane.com/download/v1.6.3 -O invoiceplane.zip
    unzip invoiceplane.zip -d .
    rm invoiceplane.zip
    chown -R www-data:www-data .
    ```
-3. Copiez le fichier de configuration et appliquez la base URL :
+3. Copy the configuration stub and adjust the base URL:
    ```bash
    mv ipconfig.php.example ipconfig.php
    ```
-   Exemple de configuration minimale :
+   Minimal example:
    ```php
    <?php
    return [
        'base_url' => 'http://localhost:8383',
    ];
    ```
-4. Accédez à `http://localhost:8383` depuis votre navigateur pour finaliser l’installation.
+4. Open `http://localhost:8383` in your browser to finish the web installer.
 
-## 🔁 Pare-feu / Reverse Proxy
-Exposez le service `nginx` sur le port `8383` et configurez votre reverse-proxy externe (Nginx Proxy Manager, Traefik, …) pour servir le site sur le domaine/public souhaité.
+## 🔁 Firewall / Reverse Proxy
+Expose container `nginx` on port `8383`, then configure your external reverse proxy (Nginx Proxy Manager, Traefik, …) to publish the site on the desired hostname.
 
 ## 🧹 Maintenance
-- `docker compose down` : arrête et supprime les conteneurs
-- `docker compose down -v` : supprime également les volumes (incluant la base de données)
-- Sauvegardez le volume MariaDB `db_data` pour sécuriser vos données.
+- `docker compose down`: stop and remove the containers
+- `docker compose down -v`: also remove named volumes (including the database)
+- Back up the MariaDB volume `db_data` to preserve your data
