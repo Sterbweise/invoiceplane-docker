@@ -1,50 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INVOICEPLANE_VERSION="${INVOICEPLANE_VERSION:-v1.6.1}"
+INVOICEPLANE_VERSION="${INVOICEPLANE_VERSION:-v1.6.3}"
 INVOICEPLANE_URL="https://www.invoiceplane.com/download/${INVOICEPLANE_VERSION}"
 HTML_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/html"
 
 if [[ ! -d "${HTML_DIR}" ]]; then
-  echo "Répertoire html introuvable: ${HTML_DIR}" >&2
+  echo "html directory not found: ${HTML_DIR}" >&2
   exit 1
 fi
 
 cd "${HTML_DIR}"
 
-if [[ -d invoice || -f ipconfig.php || -f ipconfig.php.example ]]; then
-  echo "Il semble qu'InvoicePlane soit déjà présent dans ${HTML_DIR}." >&2
-  echo "Abandon pour éviter d'écraser des données." >&2
+if [[ -d ip || -f ipconfig.php || -f ipconfig.php.example ]]; then
+  echo "InvoicePlane already appears to be present in ${HTML_DIR}." >&2
+  echo "Aborting to avoid overwriting existing data." >&2
   exit 0
 fi
 
 TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TMP_DIR}"' EXIT
 
-echo "Téléchargement de InvoicePlane (${INVOICEPLANE_VERSION})..."
+echo "Downloading InvoicePlane (${INVOICEPLANE_VERSION})..."
 wget "${INVOICEPLANE_URL}" -O "${TMP_DIR}/invoiceplane.zip"
 
-echo "Décompression..."
-unzip "${TMP_DIR}/invoiceplane.zip" -d "${TMP_DIR}"
+echo "Extracting archive..."
+unzip "${TMP_DIR}/invoiceplane.zip" -d "${TMP_DIR}" >/dev/null
 
-MOVE_SOURCE="$(find "${TMP_DIR}" -maxdepth 1 -type d -name 'invoiceplane' -o -name 'InvoicePlane' | head -n 1)"
+MOVE_SOURCE="$(find "${TMP_DIR}" -maxdepth 1 -type d \( -name 'ip' -o -name 'invoiceplane' -o -name 'InvoicePlane' \) | head -n 1)"
 if [[ -z "${MOVE_SOURCE}" ]]; then
-  echo "Impossible de localiser le dossier InvoicePlane dans l'archive." >&2
+  echo "Unable to locate the 'ip' directory inside the archive." >&2
   exit 1
 fi
 
-shopt -s dotglob
+shopt -s dotglob nullglob
 mv "${MOVE_SOURCE}"/* "${HTML_DIR}/"
-shopt -u dotglob
+shopt -u dotglob nullglob
 
 rm -rf "${TMP_DIR}"
+trap - EXIT
 
-if [[ -f "ipconfig.php.example" ]]; then
+if [[ -f "ipconfig.php.example" && ! -f "ipconfig.php" ]]; then
   cp "ipconfig.php.example" "ipconfig.php"
 fi
 
 chown -R 33:33 "${HTML_DIR}"
 
-cat <<'INFO'
-Installation terminée.
-Pensez à configurer INVOICEPLANE_BASE_URL dans votre fichier .env avant de relancer les conteneurs.
-INFO
+echo "InvoicePlane files have been installed into ${HTML_DIR}."
+echo "Remember to set INVOICEPLANE_BASE_URL in your .env file before restarting the containers."
