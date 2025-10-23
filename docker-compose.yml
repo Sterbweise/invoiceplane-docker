@@ -19,9 +19,6 @@ services:
     networks:
       - invoiceplane_net
     healthcheck:
-      test:
-        - CMD-SHELL
-        - mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}
       interval: 10s
       timeout: 5s
       retries: 5
