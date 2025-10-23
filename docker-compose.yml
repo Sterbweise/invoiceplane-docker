@@ -1,0 +1,70 @@
+name: invoiceplane
+
+services:
+  mariadb:
+    image: mariadb:11
+    container_name: invoiceplane_db
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: invoiceplane
+      MYSQL_USER: invoiceplane
+      MYSQL_PASSWORD: invoiceplane_password
+      TZ: UTC
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - invoiceplane_net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  php:
+    build:
+      context: ./php
+    container_name: invoiceplane_php
+    restart: unless-stopped
+    volumes:
+      - ./html:/var/www/html
+      - ./php/custom.ini:/usr/local/etc/php/conf.d/custom.ini
+    networks:
+      - invoiceplane_net
+    depends_on:
+      - mariadb
+    healthcheck:
+      test: ["CMD-SHELL", "php -m > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: invoiceplane_nginx
+    restart: unless-stopped
+    ports:
+      - "8383:80"
+    volumes:
+      - ./html:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - invoiceplane_net
+    depends_on:
+      - php
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  db_data:
+
+networks:
+  invoiceplane_net:
+    driver: bridge
